@@ -12,16 +12,16 @@ const AlertSendScreen = () => {
     const [message, setMessage] = useState('')
     const [expirationDate, setExpirationDate] = useState('')
 
-    const student = {id:'1', schoolID:'aaa'}
+    const school = {studentid:'1', schoolID:'aaa'}
 
     const sendAlert = async () => {
         try {
             const docRef = await addDoc(collection(db, "alerts"), {
-              schoolID: student.schoolID,
+              schoolID: school.schoolID,
               message: message,
               createdDateTime: Timestamp.fromDate(new Date()),
               expirationDate:expirationDate,
-              createdBy:student.id
+              createdBy:school.studentid
             });
             console.log("Document written with ID: ", docRef.id);
           } catch (e) {
