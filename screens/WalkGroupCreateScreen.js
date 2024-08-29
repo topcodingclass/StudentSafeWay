@@ -60,7 +60,7 @@ const WalkGroupCreateScreen = ({navigation}) => {
           schoolID: school.schoolID,
           destination:destination,
           meetingTime:meetingtime,
-          gatheringPoint:gatheringpoint
+          gatheringPointID:gatheringpoint
         });
         console.log("Document written with ID: ", docRef.id);
       } catch (e) {
