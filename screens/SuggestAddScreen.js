@@ -1,6 +1,6 @@
 import { SafeAreaView, StyleSheet, View } from 'react-native'
 import {useState} from 'react'
-import {Text, IconButton, Divider, TextInput, Button} from 'react-native-paper'
+import {Text, IconButton, Divider, TextInput, Button, RadioButton} from 'react-native-paper'
 import React from 'react'
 import {db} from '../firebase'
 import { collection, addDoc, Timestamp} from "firebase/firestore"; 
@@ -8,18 +8,18 @@ import * as Location from "expo-location";
 
 const SuggestAddScreen = () => {
     const [description, setDescription] = useState('')
-    const [status, setStatus] = useState('')
+    const [status, setStatus] = useState('submitted')
     const [location, setLocation] = useState('')
 
-const student = {id:'2', schoolID:'bbb'}
+const school = {studentid:'2', schoolID:'bbb'}
 
 const addSuggestion = async () => {
     try {
         const docRef = await addDoc(collection(db, "suggestions"), {
-          schoolID: student.schoolID,
+          schoolID: school.schoolID,
           description: description,
           reportDateTime: Timestamp.fromDate(new Date()),
-          reportedBy:student.id,
+          reportedBy:school.studentid,
           location:location,
           status: status
         });
@@ -70,7 +70,14 @@ const addSuggestion = async () => {
         margin:10
       }}
     />
-      
+    <RadioButton.Group onValueChange={setStatus} value={status}>
+            <View style={{flexDirection: 'row', justifyContent: 'space-around', margin: 15}}>
+                    <RadioButton.Item label="Submitted" value="submitted" />
+                    <RadioButton.Item label="Reviewing" value="reviewing" />
+                    <RadioButton.Item label="Accepted" value="accepted" />
+                    <RadioButton.Item label="Declined" value="declined" />
+                </View>
+            </RadioButton.Group>
     <Button style={{marginTop:40}}icon="email" mode="outlined" onPress={() => addSuggestion()}>
             Submit To School
       </Button>
