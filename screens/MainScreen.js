@@ -1,6 +1,6 @@
 import { View, SafeAreaView, FlatList, TouchableOpacity, Alert, StyleSheet } from "react-native";
 import React, { useState, useEffect } from "react";
-import { Text, Button, IconButton, Divider } from "react-native-paper";
+import { Text, Button, IconButton, Divider, Card } from "react-native-paper";
 import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase";
 import MapView, { Marker } from "react-native-maps";
@@ -67,7 +67,8 @@ const MainScreen = ({ navigation }) => {
                     location: {
                         latitude: doc.data().location.latitude, // Latitude from Firebase
                         longitude: doc.data().location.longitude, // Longitude from Firebase
-                    }
+                    },
+                    locationDesc : doc.data().locationDescription
                 };
                 hazardFromDB.push(hazard); // Add hazard to the array
             });
@@ -87,11 +88,14 @@ const MainScreen = ({ navigation }) => {
     const renderItem = ({ item }) => {
         return (
             <TouchableOpacity onPress={() => { navigation.navigate('Hazard Update', { hazard: item }) }}>
-                <View style={{ marginTop: 7 }}>
-                    <Text>Created: {item.created}</Text>
-                    <Text>Hazard: {item.message}</Text>
-                    <Text>Status: {item.status}</Text>
-                </View>
+                <Card.Title
+                title={item.locationDesc}
+            right={(props) => <IconButton {...props} icon="dots-vertical" onPress={() => navigation.navigate('Hazard Update')} />}
+        />
+        <Card.Content>
+            <Text variant="bodyMedium">{item.created}: {item.message}, {item.status}</Text>
+        </Card.Content>
+        <Divider />
             </TouchableOpacity>
         );
     };
@@ -118,7 +122,7 @@ const MainScreen = ({ navigation }) => {
             {currentLocation ? (
                 <View>
                     <MapView
-                        style={{ width: "100%", height: "60%" }}
+                        style={{ width: "100%", height: "60%", marginBottom:10}}
                         initialRegion={{
                             latitude: currentLocation.coords.latitude,
                             longitude: currentLocation.coords.longitude,
