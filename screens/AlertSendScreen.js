@@ -8,7 +8,7 @@ import React from 'react'
 import { collection, addDoc, Timestamp} from "firebase/firestore"; 
 import {db} from '../firebase'
 
-const AlertSendScreen = () => {
+const AlertSendScreen = (navigation) => {
     const [message, setMessage] = useState('')
     const [expirationDate, setExpirationDate] = useState('')
 
@@ -24,6 +24,7 @@ const AlertSendScreen = () => {
               createdBy:school.studentid
             });
             console.log("Document written with ID: ", docRef.id);
+            
           } catch (e) {
             console.error("Error adding document: ", e);
           }
@@ -65,7 +66,8 @@ const AlertSendScreen = () => {
       multiline
     />
       {/*Button*/}
-      <Button style={{marginTop:50}}icon="alert" mode="outlined" onPress={() => sendAlert()}>
+      <Button style={{marginTop:50}}icon="alert" mode="outlined" onPress={() => sendAlert()} >
+            
             Send Alert
       </Button>
       </View>
