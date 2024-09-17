@@ -1,128 +1,138 @@
 import { View, SafeAreaView, FlatList, TouchableOpacity, Alert, StyleSheet } from "react-native";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Text, Button, IconButton, Divider, Card } from "react-native-paper";
 import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase";
-import MapView, { Marker } from "react-native-maps";
+import MapView, { Marker, Callout } from "react-native-maps";
 import * as Location from 'expo-location';
 
 const MainScreen = ({ navigation }) => {
-    // State to store the list of hazards fetched from Firebase
+    // setting up state for hazards and current location
     const [hazards, setHazards] = useState([]);
-    // State to store the user's current location
     const [currentLocation, setCurrentLocation] = useState(null);
+    
+    // reference to the map so we can control it later
+    const mapRef = useRef(null);
 
-    // useEffect hook to request location permission and fetch hazards from Firebase
+    // this runs once the component mounts
     useEffect(() => {
-        // IIFE (Immediately Invoked Function Expression) to request location permission and get the current location
+        // function to get the user's current location
         const getCurrentLocation = async () => {
-            // Request permission to access the user's location
+            // ask for location permission
             let { status } = await Location.requestForegroundPermissionsAsync();
             if (status !== 'granted') {
-                // Show an alert if permission is denied
+                // if permission is denied, show an alert
                 Alert.alert("Permission Denied", "Permission to access location was denied.");
-                return; // Exit the function if permission is denied
+                return; // exit if no permission
             }
 
             try {
-                // Get the user's current location
+                // get the current location
                 let location = await Location.getCurrentPositionAsync({});
-                console.log("Location:", location); // Debugging: log the location object
+                console.log("Location:", location); // just logging for debugging
 
-                // Set the user's current location in state with some default zoom level
-                // setCurrentLocation({
-                //     latitude: location.coords.latitude,
-                //     longitude: location.coords.longitude,
-                //     latitudeDelta: 0.01, // Zoom level (latitude)
-                //     longitudeDelta: 0.01, // Zoom level (longitude)
-                // });
-
+                // we're using a test location for now, just for testing
                 const testLocation = {
                     coords: {
-                        latitude: 33.769217,  // Latitude for "2002 N Main St, Santa Ana, CA 92706"
-                        longitude: -117.867665, // Longitude for "2002 N Main St, Santa Ana, CA 92706"
+                        latitude: 33.769217,
+                        longitude: -117.867665,
                     },
                     timestamp: Date.now(),
                 };
 
-                console.log(testLocation)
-                setCurrentLocation(testLocation);
+                console.log(testLocation); // log the test location too
+                setCurrentLocation(testLocation); // save the location in state
             } catch (error) {
-                // Handle any errors that occur while getting the location
+                // if there's an error, log it
                 console.error("Error getting location:", error);
             }
         };
 
-        // Firebase real-time listener to fetch hazards and update the state when the data changes
+        // get today's date, and set the time to midnight to simplify comparison
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // set time to 00:00:00
+
+        // listen for real-time updates from firebase
         const unsubscribe = onSnapshot(collection(db, "hazards"), (querySnapshot) => {
             const hazardFromDB = [];
-            // Loop through each document in the collection and extract data
             querySnapshot.forEach((doc) => {
-                const hazard = {
-                    id: doc.id, // Document ID
-                    message: doc.data().hazardMessage, // Hazard message
-                    status: doc.data().status, // Hazard status
-                    created: doc.data().createdDateTime.toDate().toDateString(), // Creation date (formatted)
-                    type: doc.data().hazardType, // Hazard type
-                    location: {
-                        latitude: doc.data().location.latitude, // Latitude from Firebase
-                        longitude: doc.data().location.longitude, // Longitude from Firebase
-                    },
-                    locationDesc : doc.data().locationDescription
-                };
-                hazardFromDB.push(hazard); // Add hazard to the array
-            });
-            // Update the state with the new list of hazards
+                const hazardDate = doc.data().createdDateTime.toDate();
+                hazardDate.setHours(0, 0, 0, 0); // set hazard time to midnight too
 
-            console.log("$$$$$$$", hazardFromDB)
-            setHazards(hazardFromDB);
+                // only add hazards that were created today
+                if (hazardDate.getTime() === today.getTime()) {
+                    const hazard = {
+                        id: doc.id, // get the document id
+                        message: doc.data().hazardMessage, // get the hazard message
+                        status: doc.data().status, // get the hazard status
+                        created: doc.data().createdDateTime.toDate().toDateString(), // format the date
+                        type: doc.data().hazardType, // get the hazard type
+                        location: {
+                            latitude: doc.data().location.latitude, // get latitude
+                            longitude: doc.data().location.longitude, // get longitude
+                        }
+                    };
+                    hazardFromDB.push(hazard); // add to our array
+                }
+            });
+            setHazards(hazardFromDB); // update our state with today's hazards
         });
 
-        getCurrentLocation();
+        getCurrentLocation(); // go ahead and get the user's location
 
-        // Cleanup function to unsubscribe from the Firebase listener when the component unmounts
+        // clean up the firebase listener when the component unmounts
         return () => unsubscribe();
     }, []);
 
-    // Function to render each item in the FlatList (a hazard)
+    // function to animate the map to focus on a specific marker
+    const focusOnMarker = (location) => {
+        // animate the map to the selected location
+        mapRef.current.animateToRegion({
+            latitude: location.latitude,
+            longitude: location.longitude,
+            latitudeDelta: 0.01,  // how zoomed in/out we want to be
+            longitudeDelta: 0.01, // same for longitude
+        }, 1000); // animation duration
+    };
+
+    // this function renders each hazard in the list
     const renderItem = ({ item }) => {
         return (
-            <TouchableOpacity onPress={() => { navigation.navigate('Hazard Update', { hazard: item }) }}>
-                <Card.Title
-                title={item.locationDesc}
-            right={(props) => <IconButton {...props} icon="dots-vertical" onPress={() => navigation.navigate('Hazard Update')} />}
-        />
-        <Card.Content>
-            <Text variant="bodyMedium">{item.created}: {item.message}, {item.status}</Text>
-        </Card.Content>
-        <Divider />
+            // when you click the card, it moves the map to the hazard's location
+            <TouchableOpacity onPress={() => focusOnMarker(item.location)}>
+                <Card style={{ marginVertical: 5 }}>
+                    <Card.Content>
+                        <Text variant="titleSmall">Created: {item.created}</Text>
+                        <Text variant="bodyMedium">Hazard: {item.message}</Text>
+                        <Text variant="bodySmall">Status: {item.status}</Text>
+                    </Card.Content>
+                    <Card.Actions>
+                        {/* this icon button opens up more options, like editing the hazard */}
+                        <IconButton
+                            icon="dots-vertical"
+                            onPress={() => navigation.navigate('Hazard Update', { hazard: item })}
+                        />
+                    </Card.Actions>
+                </Card>
             </TouchableOpacity>
         );
     };
 
     return (
         <SafeAreaView style={{ margin: 10 }}>
-            {/* Header section */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-evenly' }}>
-                <Text variant="labelLarge">Hello Scooby Doo!</Text>
-                <Text variant="labelLarge">15 degrees, Sunny</Text>
-                <IconButton
-                    icon="account"
-                    size={20}
-                    onPress={() => console.log('Pressed')}
-                />
+            {/* header section with some text and an icon */}
 
-            </View>
-            <Divider />
             <View style={{ height: 200 }}>
                 <Text>School Alerts: </Text>
             </View>
 
-            {/* Map and hazards list section */}
+            {/* main section where we show the map and the list of hazards */}
             {currentLocation ? (
                 <View>
+                    {/* this is the map view */}
                     <MapView
-                        style={{ width: "100%", height: "60%", marginBottom:10}}
+                        ref={mapRef} // this connects the map to our ref
+                        style={{ width: "100%", height: "60%" }}
                         initialRegion={{
                             latitude: currentLocation.coords.latitude,
                             longitude: currentLocation.coords.longitude,
@@ -130,39 +140,45 @@ const MainScreen = ({ navigation }) => {
                             longitudeDelta: 0.010,
                         }}
                     >
+                        {/* marker for the user's current location */}
                         <Marker
                             coordinate={{
                                 latitude: currentLocation.coords.latitude,
                                 longitude: currentLocation.coords.longitude,
                             }}>
-                            {/* Custom Marker */}
-                            <View style={styles.customMarker}>
-                                <Text style={styles.markerText}>🏠</Text>
-                            </View>
                         </Marker>
-                        {/* Markers for each hazard fetched from Firebase */}
+                        {/* markers for each hazard in the list */}
                         {hazards.map((hazard) => (
                             <Marker
-                                key={hazard.id} // Unique key for each marker (using document ID)
-                                coordinate={hazard.location} // Set marker at the hazard's location
-                                title={hazard.message} // Title for the marker (hazard message)
-                                description={`Status: ${hazard.status}`} // Description for the marker (hazard status)
-                            />
+                                key={hazard.id} // each marker needs a unique key
+                                coordinate={hazard.location} // where the marker is on the map
+                            >
+                                <Callout>
+                                    {/* when you tap the callout, it takes you to the hazard update screen */}
+                                    <TouchableOpacity onPress={() => navigation.navigate('Hazard Update', { hazard })}>
+                                        <View>
+                                            <Text style={{ fontWeight: 'bold' }}>{hazard.message}</Text>
+                                            <Text>Status: {hazard.status}</Text>
+                                        </View>
+                                    </TouchableOpacity>
+                                </Callout>
+                            </Marker>
                         ))}
                     </MapView>
 
-                    {/* List of hazards displayed below the map */}
+                    {/* this is the list of hazards */}
                     <FlatList
-                        data={hazards} // Data source for the list (hazards array)
-                        renderItem={renderItem} // Function to render each item in the list
-                        keyExtractor={item => item.id} // Key extractor for each list item (using document ID)
+                        data={hazards} // our array of today's hazards
+                        renderItem={renderItem} // how each item in the list should look
+                        keyExtractor={item => item.id} // unique key for each list item
                         style={{ flex: 1 }}
                     />
                 </View>
             ) : (
+                // if the location isn't loaded yet, just show a loading text
                 <Text>Loading...</Text>
             )}
-            {/* Buttons for reporting a hazard and joining a walk group */}
+            {/* buttons for reporting a new hazard and joining a walk group */}
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 1 }}>
                 <Button
                     onPress={() => navigation.navigate('Hazard Report')}
@@ -184,28 +200,20 @@ const MainScreen = ({ navigation }) => {
     );
 };
 
-
-
+// some basic styles for the map and custom markers
 const styles = StyleSheet.create({
     map: {
         flex: 0.8,
         width: '100%',
     },
     customMarker: {
-        width: 40,   // Ensure width is set
-        height: 40,  // Ensure height is set
-        backgroundColor: 'gray', // Optional: for visibility
-        borderRadius: 20, // Optional: to make it circular
+        width: 40,
+        height: 40,
+        backgroundColor: 'gray',
+        borderRadius: 20,
         justifyContent: 'center',
         alignItems: 'center',
     },
-    groupMarker: {
-        width: 120,   // Ensure width is set
-        height: 40,  // Ensure height is set
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-
     markerText: {
         color: 'red',
     },
