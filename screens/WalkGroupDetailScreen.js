@@ -17,37 +17,36 @@ const WalkGroupDetailScreen = ({ route, navigation }) => {
     }, [navigation]);
 
     useEffect(() => {
-        const fetchStudents = async () => {
-            try {
-                const studentsCollection = await getDocs(collection(db, `groups/${group.id}/students`));
-                const studentsList = studentsCollection.docs.map(studentDoc => ({ id: studentDoc.id, ...studentDoc.data() }));
-                setStudents(studentsList);
-                const counts = {};
-                studentsList.forEach(item => {
-                    const grade = item.grade.replace(/\"/g, ''); // Removing quotes if present
-                    if (!counts[grade]) {
-                        counts[grade] = 0;
-                    }
-                    counts[grade] += 1;
-                });
-                const countsArray = Object.keys(counts).map(key => ({
-                    grade: key,
-                    count: counts[key],
-                }));
-                setGradeCounts(countsArray);
-
-            } catch (error) {
-                console.error('Error fetching students: ', error);
-            }
-        };
-
         fetchStudents();
     }, []);
+const fetchStudents = async () => {
+        try {
+            const studentsCollection = await getDocs(collection(db, `groups/${group.id}/students`));
+            const studentsList = studentsCollection.docs.map(studentDoc => ({ id: studentDoc.id, ...studentDoc.data() }));
+            setStudents(studentsList);
+            const counts = {};
+            studentsList.forEach(item => {
+                const grade = item.grade.replace(/\"/g, ''); // Removing quotes if present
+                if (!counts[grade]) {
+                    counts[grade] = 0;
+                }
+                counts[grade] += 1;
+            });
+            const countsArray = Object.keys(counts).map(key => ({
+                grade: key,
+                count: counts[key],
+            }));
+            setGradeCounts(countsArray);
 
+        } catch (error) {
+            console.error('Error fetching students: ', error);
+        }
+        }
     const addStudent = async () => {
         try {
             await addDoc(collection(db, "groups", group.id, "students"), user);
             console.log('Student added to group successfully');
+            fetchStudents()
         } catch (error) {
             console.error('Error adding student to group: ', error);
         }
@@ -61,6 +60,7 @@ const WalkGroupDetailScreen = ({ route, navigation }) => {
                 deleteDoc(doc(db, "groups", group.id, "students", document.id));
             });
             console.log('Student deleted from group successfully');
+            fetchStudents()
         } catch (error) {
             console.error('Error deleting student from group: ', error);
         }
@@ -70,7 +70,7 @@ const WalkGroupDetailScreen = ({ route, navigation }) => {
         <SafeAreaView style={styles.container}>
             <View style={styles.groupInfo}>
                 <Text variant="titleMedium" style={styles.infoText}>Destination: {group.destination}</Text>
-                <Text variant="titleMedium" style={styles.infoText}>Gathering Point: {group.gatheringPoint}</Text>
+                <Text variant="titleMedium" style={styles.infoText}>Gathering Point: {group.gatheringPointName}</Text>
                 <Text variant="titleMedium" style={styles.infoText}>Meeting Time: {group.meetingTime}</Text>
             </View>
             <Divider />
