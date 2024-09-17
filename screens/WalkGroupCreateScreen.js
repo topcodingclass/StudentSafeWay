@@ -1,10 +1,11 @@
 import { SafeAreaView, StyleSheet, View, TouchableOpacity} from 'react-native'
 import { useState } from 'react'
-import { Text, IconButton, Divider, Provider, Button } from 'react-native-paper'
+import { Text, IconButton, Divider, Provider, Button, TextInput } from 'react-native-paper'
 import React from 'react'
 import DropDown from "react-native-paper-dropdown";
 import {db} from '../firebase'
 import { collection, addDoc} from "firebase/firestore"; 
+import axios from 'axios';
 
 const WalkGroupCreateScreen = ({navigation}) => {
   const newSpot = () => {
@@ -15,11 +16,13 @@ const WalkGroupCreateScreen = ({navigation}) => {
   }
 
   const [destination, setDestination] = useState('')
-  const [gatheringpoint, setGatheringPoint] = useState('')
-  const [meetingtime, setMeetingTime] = useState('')
+  const [groupName, setgroupName] = useState('')
+  const [gatheringPoint, setGatheringPoint] = useState('')
+  const [gatheringPointName, setGatheringPointName] = useState('')
+  const [gatheringPointAddress, setGatheringPointAddress] = useState('')
+  const [meetingTime, setMeetingTime] = useState('')
   const [showDropDownDestination, setShowDropDownDestination] = useState(false);
-  const [showDropDownGathering, setShowDropDownGathering] = useState(false);
-  const [showDropDownMeeting, setShowDropDownMeeting] = useState(false);
+
 
   const destinationList = [
     {
@@ -32,16 +35,6 @@ const WalkGroupCreateScreen = ({navigation}) => {
     }
   ]
 
-  const gatheringList = [
-    {
-      label: "First Spot",
-      value: "First Spot"
-    },
-    {
-      label: "Second Spot",
-      value: "Second Spot"
-    }
-  ]
   const meetingList = [
     {
       label:"First Time",
@@ -54,34 +47,44 @@ const WalkGroupCreateScreen = ({navigation}) => {
   ]
   const school = {id:'2', schoolID:'bbb'}
 
-  const addGroups = async () => {
+const addGroups = async () => {
     try {
-        const docRef = await addDoc(collection(db, "groups"), {
-          schoolID: school.schoolID,
-          destination:destination,
-          meetingTime:meetingtime,
-          gatheringPointID:gatheringpoint
-        });
-        console.log("Document written with ID: ", docRef.id);
-      } catch (e) {
-        console.error("Error adding document: ", e);
-      }
+      // Geocode gatheringPointAddress to get lat/lng
+      const apiKey = 'AIzaSyAwZ14E06iyM-L465xhMqZlLltS_FNJEjY';
+      const response = await axios.get(`https://maps.googleapis.com/maps/api/geocode/json`, {
+        params: {
+          address: gatheringPointAddress,
+          key: apiKey,
+        }
+      });
+  
+      // Extract latitude and longitude from the response
+      const location = response.data.results[0].geometry.location;
+      const gatheringPointGeoCode = {
+        lat: location.lat,
+        lng: location.lng,
+      };
+// Add the document with the geo-coordinates
+      const docRef = await addDoc(collection(db, "groups"), {
+        schoolID: school.schoolID,
+        name:groupName,
+        destination: destination,
+        meetingTime: meetingTime,
+        gatheringPointName: gatheringPoint,
+        gatheringPointAddress: gatheringPointAddress,
+        gatheringPointGeoCode: gatheringPointGeoCode,  // Add the geocode here
+      });
+  
+      console.log("Document written with ID: ", docRef.id);
+    } catch (e) {
+      console.error("Error adding document: ", e);
     }
+  };
+     
 
   return (
     <Provider>
       <SafeAreaView style = {{margin:10}}>
-        {/*Header*/}
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-evenly' }}>
-          <Text variant="labelLarge">Hello Scooby Doo</Text>
-          <Text variant="labelLarge">15 Degree Sunny</Text>
-          <IconButton
-            icon="account"
-            size={20}
-            onPress={() => console.log('Pressed')}
-          />
-        </View>
-        <Divider />
         <View style={{ marginTop: 20, marginHorizontal: 5 }}>
           <Text variant="titleLarge" style={{ alignSelf: 'center', marginBottom: 20, marginTop: 20 }}>Create a Walk Group</Text>
         </View>
@@ -96,41 +99,41 @@ const WalkGroupCreateScreen = ({navigation}) => {
           list={destinationList}
           style={{ marginTop: 40, marginBottom: 50 }}
         />
-        <DropDown
-          label={"Gathering Point"}
-          mode={"outlined"}
-          visible={showDropDownGathering}
-          showDropDown={() => setShowDropDownGathering(true)}
-          onDismiss={() => setShowDropDownGathering(false)}
-          value={gatheringpoint}
-          setValue={setGatheringPoint}
-          list={gatheringList}
-          style={{ marginTop: 40, marginBottom: 50 }}
-        />
-        <TouchableOpacity onPress={newSpot} style={styles.textButton}>
-          <Text style={styles.textButtonText}>Create A New Spot</Text>
-        </TouchableOpacity>
-        <DropDown
-          label={"Meeting Time"}
-          mode={"outlined"}
-          visible={showDropDownMeeting}
-          showDropDown={() => setShowDropDownMeeting(true)}
-          onDismiss={() => setShowDropDownMeeting(false)}
-          value={meetingtime}
-          setValue={setMeetingTime}
-          list={meetingList}
-          style={{ marginTop: 40, marginBottom: 50 }}
-        />
-         <TouchableOpacity onPress={newTime} style={styles.textButton}>
-          <Text style={styles.textButtonText}>Set A New Time</Text>
-        </TouchableOpacity>
+      <TextInput
+      label="Name"
+      value={groupName}
+      onChangeText={setgroupName}
+      mode='outlined'
+      multiline
+    />
+        <TextInput
+      label="Gathering Point Name"
+      value={gatheringPointName}
+      onChangeText={setGatheringPointName}
+      mode='outlined'
+      multiline
+    />
+    <TextInput
+      label="Gathering Point Address"
+      value={gatheringPointAddress}
+      onChangeText={setGatheringPointAddress}
+      mode='outlined'
+      multiline
+    />
+         <TextInput
+      label="Meeting Time"
+      value={meetingTime}
+      onChangeText={setMeetingTime}
+      mode='outlined'
+      multiline
+    />
 
         <Button style={{marginTop:40}}icon="account-multiple-plus" mode="outlined" onPress={() => addGroups()}>
             Create Walk Group
       </Button>
       <Button style={{marginTop:40}} 
       mode="outlined"
-      onPress={() => navigation.navigate('List Group')}
+      onPress={() => navigation.navigate('Walk Group List')}
   >
       List of Walk Groups
   </Button>
