@@ -8,12 +8,32 @@ import * as Location from 'expo-location';
 
 const MainScreen = ({ navigation }) => {
     const [hazards, setHazards] = useState([]);
-    const [alerts, setAlerts] = useState([]); // State for alerts
+    const [alerts, setAlerts] = useState([]);
     const [helps, setHelps] = useState([]); // State for helps (SOS markers)
     const [currentLocation, setCurrentLocation] = useState(null);
+    const [studentData, setStudentData] = useState(null); // Store student data here
     const mapRef = useRef(null);
 
     const studentID = auth.currentUser.uid;
+
+    // Fetch student data from Firebase
+    useEffect(() => {
+        const fetchStudentData = async () => {
+            try {
+                const studentDoc = await getDoc(doc(db, "students", studentID));
+
+                if (studentDoc.exists()) {
+                    setStudentData(studentDoc.data()); // Set the student data in state
+                } else {
+                    console.error("No such student data found!");
+                }
+            } catch (error) {
+                console.error("Error fetching student data:", error);
+            }
+        };
+
+        fetchStudentData();
+    }, []);
 
     // Fetch helps (SOS alerts) from Firebase
     useEffect(() => {
@@ -89,7 +109,7 @@ const MainScreen = ({ navigation }) => {
                     message: doc.data().message,
                     createdDateTime: doc.data().createdDateTime.toDate().toDateString(),
                     expirationDate: doc.data().expirationDate,
-                    createdBy: doc.data().createdBy, 
+                    createdBy: doc.data().createdBy,
                 };
                 alertsFromDB.push(alertData);
             });
@@ -150,16 +170,16 @@ const MainScreen = ({ navigation }) => {
             {/* Display the number of alerts */}
             <View style={{ height: 200 }}>
             <Text style={{ fontWeight: 'bold', fontSize: 18 }}>Total Help asked: ({helps.length})</Text>
-                <Text style={{ fontWeight: 'bold', fontSize: 18 }}>School Alerts ({alerts.length})</Text>
+                <Text style={{ fontWeight: 'bold', fontSize: 18 }}>School Alerts ({alerts.length}):</Text>
                 <FlatList
                     data={alerts}
                     renderItem={renderAlertItem}
                     keyExtractor={(item) => item.id}
                 />
             </View>
-    
+
             <Divider />
-    
+
             {currentLocation ? (
                 <View>
                     <MapView
