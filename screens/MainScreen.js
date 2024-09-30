@@ -1,16 +1,38 @@
 import { View, SafeAreaView, FlatList, TouchableOpacity, Alert, StyleSheet } from "react-native";
 import React, { useState, useEffect, useRef } from "react";
 import { Text, Button, IconButton, Divider, Card } from "react-native-paper";
-import { collection, onSnapshot } from "firebase/firestore";
-import { db } from "../firebase";
+import { collection, onSnapshot, doc, getDoc } from "firebase/firestore";
+import { db, auth } from "../firebase";
 import MapView, { Marker, Callout } from "react-native-maps";
 import * as Location from 'expo-location';
 
 const MainScreen = ({ navigation }) => {
     const [hazards, setHazards] = useState([]);
     const [alerts, setAlerts] = useState([]); // State for alerts
+    const [helps, setHelps] = useState([]); // State for helps (SOS markers)
     const [currentLocation, setCurrentLocation] = useState(null);
     const mapRef = useRef(null);
+
+    const studentID = auth.currentUser.uid;
+
+    // Fetch helps (SOS alerts) from Firebase
+    useEffect(() => {
+        const unsubscribeHelps = onSnapshot(collection(db, "helps"), (querySnapshot) => {
+            const helpsFromDB = [];
+            querySnapshot.forEach((doc) => {
+                const help = {
+                    id: doc.id,
+                    ...doc.data(),
+                };
+                helpsFromDB.push(help);
+            });
+            setHelps(helpsFromDB);
+        });
+
+        return () => {
+            unsubscribeHelps();
+        };
+    }, []);
 
     // Fetch current location and hazards from Firestore
     useEffect(() => {
@@ -23,15 +45,7 @@ const MainScreen = ({ navigation }) => {
 
             try {
                 let location = await Location.getCurrentPositionAsync({});
-                const testLocation = {
-                    coords: {
-                        latitude: 33.769217,
-                        longitude: -117.867665,
-                    },
-                    timestamp: Date.now(),
-                };
-
-                setCurrentLocation(testLocation);
+                setCurrentLocation(location);
             } catch (error) {
                 console.error("Error getting location:", error);
             }
@@ -40,6 +54,7 @@ const MainScreen = ({ navigation }) => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
+        // Fetch hazards from Firestore
         const unsubscribeHazards = onSnapshot(collection(db, "hazard1"), (querySnapshot) => {
             const hazardFromDB = [];
             querySnapshot.forEach((doc) => {
@@ -64,6 +79,7 @@ const MainScreen = ({ navigation }) => {
             setHazards(hazardFromDB);
         });
 
+        // Fetch alerts from Firestore
         const unsubscribeAlerts = onSnapshot(collection(db, "alerts"), (querySnapshot) => {
             const alertsFromDB = [];
             querySnapshot.forEach((doc) => {
@@ -72,8 +88,8 @@ const MainScreen = ({ navigation }) => {
                     schoolID: doc.data().schoolID,
                     message: doc.data().message,
                     createdDateTime: doc.data().createdDateTime.toDate().toDateString(),
-                    expirationDate: doc.data().expirationDate.toDate().toDateString(),
-                    createdBy: doc.data().createdBy,
+                    expirationDate: doc.data().expirationDate,
+                    createdBy: doc.data().createdBy, 
                 };
                 alertsFromDB.push(alertData);
             });
@@ -131,18 +147,19 @@ const MainScreen = ({ navigation }) => {
 
     return (
         <SafeAreaView style={{ margin: 10 }}>
-            {/* FlatList for Alerts */}
+            {/* Display the number of alerts */}
             <View style={{ height: 200 }}>
-                <Text style={{ fontWeight: 'bold', fontSize: 18 }}>School Alerts:</Text>
+            <Text style={{ fontWeight: 'bold', fontSize: 18 }}>Total Help asked: ({helps.length})</Text>
+                <Text style={{ fontWeight: 'bold', fontSize: 18 }}>School Alerts ({alerts.length})</Text>
                 <FlatList
                     data={alerts}
                     renderItem={renderAlertItem}
                     keyExtractor={(item) => item.id}
                 />
             </View>
-
+    
             <Divider />
-
+    
             {currentLocation ? (
                 <View>
                     <MapView
@@ -160,8 +177,9 @@ const MainScreen = ({ navigation }) => {
                                 latitude: currentLocation.coords.latitude,
                                 longitude: currentLocation.coords.longitude,
                             }}
-                        >
-                        </Marker>
+                        />
+
+                        {/* Existing hazards */}
                         {hazards.map((hazard) => (
                             <Marker
                                 key={hazard.id}
@@ -177,7 +195,29 @@ const MainScreen = ({ navigation }) => {
                                 </Callout>
                             </Marker>
                         ))}
+
+                        {/* Display help requests (SOS markers) only as map markers */}
+                        {helps.map((help) => (
+                            <Marker
+                                key={help.id}
+                                coordinate={help.location}
+                                pinColor="red"
+                            >
+                                <Callout>
+                                    <View>
+                                        <Text style={{ fontWeight: 'bold' }}>{help.description}</Text>
+                                        <Text>Status: {help.status}</Text>
+                                        <Text>Called by: {help.studentID}</Text>
+                                    </View>
+                                </Callout>
+                            </Marker>
+                        ))}
                     </MapView>
+
+                    {/* Display the number of hazards */}
+                    <Text style={{ fontWeight: 'bold', fontSize: 18, marginVertical: 5 }}>
+                        Hazards ({hazards.length}):
+                    </Text>
 
                     {/* FlatList for Hazards */}
                     <FlatList
@@ -206,6 +246,14 @@ const MainScreen = ({ navigation }) => {
                     style={{ flex: 1 }}
                 >
                     Join Walk Group
+                </Button>
+                <Button
+                    onPress={() => navigation.navigate('AskForHelpScreen')}
+                    icon="help-circle"
+                    mode="contained"
+                    style={{ flex: 1, marginLeft: 5 }}
+                >
+                    Ask For Help
                 </Button>
             </View>
         </SafeAreaView>
