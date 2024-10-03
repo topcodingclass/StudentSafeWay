@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, SafeAreaView } from 'react-native';
 import { IconButton } from 'react-native-paper';
 import { auth } from '../firebase'; // Firebase auth to get the user's name
+import { Button } from 'react-native-paper'
 
-const Header = () => {
+const Header = ({navigation}) => {
   const [weather, setWeather] = useState(null);
   const [userName, setUserName] = useState('');
   const [error, setError] = useState(null);
@@ -70,11 +71,12 @@ const Header = () => {
           <Text>Loading weather...</Text>
         )}
         <IconButton
-          icon="account"
           size={20}
-          onPress={() => console.log('Account icon pressed')}
-        />
+          onPress={() => navigation.navigate('AskForHelpScreen')}
+          icon="alert"
+                />
       </View>
+      
     </SafeAreaView>
   );
 };
