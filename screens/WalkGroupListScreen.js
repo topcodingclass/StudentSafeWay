@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View, SafeAreaView, FlatList, TouchableOpacity } from 'react-native';
-import { Text, IconButton, Divider, Button } from 'react-native-paper';
+import { Text, Divider, Button } from 'react-native-paper';
 import { collection, getDocs } from "firebase/firestore";
 import { db } from '../firebase';
 import MapView, { Marker, Callout } from 'react-native-maps';
@@ -12,24 +12,26 @@ const WalkGroupListScreen = ({ navigation }) => {
   const [errorMsg, setErrorMsg] = useState(null);
   const [markers, setMarkers] = useState([]);
 
-
   useEffect(() => {
     const fetchGroups = async () => {
       try {
         const groupsCollection = await getDocs(collection(db, "groups"));
         const groupsList = groupsCollection.docs.map(doc => ({
           id: doc.id,
-          ...doc.data()
+          ...doc.data() // Ensure that gatheringPointName is part of the data retrieved
         }));
-        console.log(groupsList)
+        
+        console.log(groupsList);  // This will show the data, check if gatheringPointName is present
+        
         setGroups(groupsList);
+
         // Generate markers from groupsList
         const markersList = groupsList.map(group => ({
           id: group.id,
-          title: group.gatheringPointName,
+          title: group.gatheringPointName || 'Unnamed',  // Fallback to avoid undefined
           coordinates: {
-            latitude: group.gatheringPointGeoCode.lat,
-            longitude: group.gatheringPointGeoCode.lng,
+            latitude: group.gatheringPointGeoCode?.lat, // Use optional chaining for safe access
+            longitude: group.gatheringPointGeoCode?.lng,
           },
         }));
 
@@ -40,31 +42,19 @@ const WalkGroupListScreen = ({ navigation }) => {
     };
 
     const getCurrentLocation = async () => {
-      {
-        // let { status } = await Location.requestForegroundPermissionsAsync();
-        // if (status !== 'granted') {
-        //   setErrorMsg('Permission to access location was denied');
-        //   return;
-        // }
-
-        // let location = await Location.getCurrentPositionAsync({});
-        // setLocation(location);
-        //for testing
-        // Manually set location for testing
-    const testLocation = {
-      coords: {
-        latitude: 33.769217,  // Latitude for "2002 N Main St, Santa Ana, CA 92706"
-        longitude: -117.867665, // Longitude for "2002 N Main St, Santa Ana, CA 92706"
-      },
-      timestamp: Date.now(),
-    };
-    setLocation(testLocation);
-      }
+      const testLocation = {
+        coords: {
+          latitude: 33.769217,
+          longitude: -117.867665,
+        },
+        timestamp: Date.now(),
+      };
+      setLocation(testLocation);
     }
 
     fetchGroups();
     getCurrentLocation();
-  }, [])
+  }, []);
 
   const renderItem = ({ item }) => {
     return (
@@ -73,24 +63,25 @@ const WalkGroupListScreen = ({ navigation }) => {
         <View style={{ margin: 5 }}>
           <View style={{ flexDirection: 'row', margin: 5, alignItems: 'center', justifyContent: "space-between" }}>
             <Text variant="titleMedium"> Name: {item.name} </Text>
-
           </View>
           <View style={{ flexDirection: 'row', margin: 5, alignItems: 'center', justifyContent: "space-between" }}>
             <Text> Destination: {item.destination} </Text>
-            <Text>Meeting Time: {item.meetingTime} </Text>
+            <Text> Meeting Time: {item.meetingTime} </Text>
           </View>
           <View style={{ flexDirection: 'row', margin: 5, alignItems: 'center', justifyContent: "space-between" }}>
-            <Text>Gathering Point:{item.gatheringPointName} </Text>
+            <Text>Gathering Point: {item.gatheringPointName || 'No Name Provided'} </Text>
+          </View>
+          <View style={{ flexDirection: 'row', margin: 5, alignItems: 'center', justifyContent: "space-between" }}>
+            <Text>Group Type: {item.type} </Text>
           </View>
           <Divider />
         </View>
       </TouchableOpacity>
-
     )
   }
+
   return (
     <SafeAreaView style={{ flex: 1 }}>
-
       {location ? (
         <MapView
           style={styles.map}
@@ -102,15 +93,14 @@ const WalkGroupListScreen = ({ navigation }) => {
           }}
         >
           <Marker
-              coordinate={{
-                latitude: location.coords.latitude,
-                longitude: location.coords.longitude,
-              }}>
-              {/* Custom Marker */}
-              <View style={styles.customMarker}>
-                <Text style={styles.markerText}>🏠</Text>
-              </View>
-            </Marker>
+            coordinate={{
+              latitude: location.coords.latitude,
+              longitude: location.coords.longitude,
+            }}>
+            <View style={styles.customMarker}>
+              <Text style={styles.markerText}>🏠</Text>
+            </View>
+          </Marker>
           {markers.map(marker => (
             <Marker
               key={marker.id}
@@ -138,10 +128,10 @@ const WalkGroupListScreen = ({ navigation }) => {
         </Button>
       </View>
     </SafeAreaView>
-  )
-
+  );
 }
-export default WalkGroupListScreen
+
+export default WalkGroupListScreen;
 
 const styles = StyleSheet.create({
   map: {
@@ -149,21 +139,14 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   customMarker: {
-    width: 40,   // Ensure width is set
-    height: 40,  // Ensure height is set
-    backgroundColor: 'gray', // Optional: for visibility
-    borderRadius: 20, // Optional: to make it circular
+    width: 40,
+    height: 40,
+    backgroundColor: 'gray',
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  groupMarker: {
-    width: 120,   // Ensure width is set
-    height: 40,  // Ensure height is set
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
   markerText: {
     color: 'red',
   },
-})
+});
