@@ -1,28 +1,21 @@
 import { SafeAreaView, StyleSheet, View, TouchableOpacity} from 'react-native'
-import { useState } from 'react'
+import { useState, useEffect} from 'react'
 import { Text, IconButton, Divider, Provider, Button, TextInput } from 'react-native-paper'
 import React from 'react'
 import DropDown from "react-native-paper-dropdown";
-import {db} from '../firebase'
+import {db, auth} from '../firebase'
 import { collection, addDoc} from "firebase/firestore"; 
 import axios from 'axios';
 
 const WalkGroupCreateScreen = ({navigation}) => {
-  const newSpot = () => {
-    console.log('Pressed');
-  }
-  const newTime = () => {
-    console.log('Pressed');
-  }
-
   const [destination, setDestination] = useState('')
+  const [types, setTypes] = useState('')
   const [groupName, setgroupName] = useState('')
-  const [gatheringPoint, setGatheringPoint] = useState('')
   const [gatheringPointName, setGatheringPointName] = useState('')
   const [gatheringPointAddress, setGatheringPointAddress] = useState('')
   const [meetingTime, setMeetingTime] = useState('')
   const [showDropDownDestination, setShowDropDownDestination] = useState(false);
-
+  const [showDropDownType, setShowDropDownType] = useState(false); // New state for types dropdown
 
   const destinationList = [
     {
@@ -35,19 +28,23 @@ const WalkGroupCreateScreen = ({navigation}) => {
     }
   ]
 
-  const meetingList = [
+  const typeList = [
     {
-      label:"First Time",
-      value:"First Time"
+      label: "Walk",
+      value: "Walk"
     },
     {
-      label: "Second Time",
-      value: "Second Time"
+      label: "Bike",
+      value: "Bike"
+    },
+    {
+      label: "Ebike",
+      value: "Ebike"
     }
   ]
-  const school = {id:'2', schoolID:'bbb'}
+  const school = {id: '2', schoolID: 'bbb'}
 
-const addGroups = async () => {
+  const addGroups = async () => {
     try {
       // Geocode gatheringPointAddress to get lat/lng
       const apiKey = 'AIzaSyAwZ14E06iyM-L465xhMqZlLltS_FNJEjY';
@@ -64,15 +61,17 @@ const addGroups = async () => {
         lat: location.lat,
         lng: location.lng,
       };
-// Add the document with the geo-coordinates
+
+      // Add the document with the geo-coordinates
       const docRef = await addDoc(collection(db, "groups"), {
         schoolID: school.schoolID,
-        name:groupName,
+        name: groupName,
         destination: destination,
         meetingTime: meetingTime,
-        gatheringPointName: gatheringPoint,
+        gatheringPointName: gatheringPointName,
         gatheringPointAddress: gatheringPointAddress,
-        gatheringPointGeoCode: gatheringPointGeoCode,  // Add the geocode here
+        gatheringPointGeoCode: gatheringPointGeoCode,
+        type: types, // Add the selected type here
       });
   
       console.log("Document written with ID: ", docRef.id);
@@ -81,13 +80,13 @@ const addGroups = async () => {
     }
   };
      
-
   return (
     <Provider>
-      <SafeAreaView style = {{margin:10}}>
+      <SafeAreaView style={{margin:10}}>
         <View style={{ marginTop: 20, marginHorizontal: 5 }}>
           <Text variant="titleLarge" style={{ alignSelf: 'center', marginBottom: 20, marginTop: 20 }}>Create a Walk Group</Text>
         </View>
+
         <DropDown
           label={"Destination"}
           mode={"outlined"}
@@ -97,50 +96,60 @@ const addGroups = async () => {
           value={destination}
           setValue={setDestination}
           list={destinationList}
-          style={{ marginTop: 40, marginBottom: 50 }}
+          style={{ marginTop: 40, marginBottom: 20 }}
         />
-      <TextInput
-      label="Name"
-      value={groupName}
-      onChangeText={setgroupName}
-      mode='outlined'
-      multiline
-    />
-        <TextInput
-      label="Gathering Point Name"
-      value={gatheringPointName}
-      onChangeText={setGatheringPointName}
-      mode='outlined'
-      multiline
-    />
-    <TextInput
-      label="Gathering Point Address"
-      value={gatheringPointAddress}
-      onChangeText={setGatheringPointAddress}
-      mode='outlined'
-      multiline
-    />
-         <TextInput
-      label="Meeting Time"
-      value={meetingTime}
-      onChangeText={setMeetingTime}
-      mode='outlined'
-      multiline
-    />
 
-        <Button style={{marginTop:40}}icon="account-multiple-plus" mode="outlined" onPress={() => addGroups()}>
-            Create Walk Group
-      </Button>
-      <Button style={{marginTop:40}} 
-      mode="outlined"
-      onPress={() => navigation.navigate('Walk Group List')}
-  >
-      List of Walk Groups
-  </Button>
+        <DropDown
+          label={"Type"}
+          mode={"outlined"}
+          visible={showDropDownType}
+          showDropDown={() => setShowDropDownType(true)}
+          onDismiss={() => setShowDropDownType(false)}
+          value={types}
+          setValue={setTypes}
+          list={typeList}
+          style={{ marginTop: 20, marginBottom: 50 }}
+        />
+
+        <TextInput
+          label="Group Name"
+          value={groupName}
+          onChangeText={setgroupName}
+          mode='outlined'
+          multiline
+        />
+        <TextInput
+          label="Gathering Point Name"
+          value={gatheringPointName}
+          onChangeText={setGatheringPointName}
+          mode='outlined'
+          multiline
+        />
+        <TextInput
+          label="Gathering Point Address"
+          value={gatheringPointAddress}
+          onChangeText={setGatheringPointAddress}
+          mode='outlined'
+          multiline
+        />
+        <TextInput
+          label="Meeting Time"
+          value={meetingTime}
+          onChangeText={setMeetingTime}
+          mode='outlined'
+          multiline
+        />
+
+        <Button style={{ marginTop: 40 }} icon="account-multiple-plus" mode="outlined" onPress={() => addGroups()}>
+          Create Walk Group
+        </Button>
+
+        <Button style={{ marginTop: 40 }} mode="outlined" onPress={() => navigation.navigate('Walk Group List')}>
+          List of Walk Groups
+        </Button>
       </SafeAreaView>
     </Provider>
   )
-  
 }
 
 export default WalkGroupCreateScreen
