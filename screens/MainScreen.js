@@ -75,7 +75,7 @@ const MainScreen = ({ navigation }) => {
         today.setHours(0, 0, 0, 0);
 
         // Fetch hazards from Firestore
-        const unsubscribeHazards = onSnapshot(collection(db, "hazard1"), (querySnapshot) => {
+        const unsubscribeHazards = onSnapshot(collection(db, "hazards"), (querySnapshot) => {
             const hazardFromDB = [];
             querySnapshot.forEach((doc) => {
                 const hazardDate = doc.data().reportDateTime.toDate();
@@ -136,7 +136,12 @@ const MainScreen = ({ navigation }) => {
     const renderHazardItem = ({ item }) => {
         return (
             <TouchableOpacity onPress={() => focusOnMarker(item.location)}>
-                <Card style={{ marginVertical: 5 }}>
+                <Card.Title
+             title={`${item.description} `}
+             subtitle ={`Created:${item.reportDateTime}  Status: ${item.status}`}
+            right={(props) => <IconButton {...props} icon="dots-vertical" onPress={() => navigation.navigate('Hazard Update', { hazard: item })} />}
+        />
+                {/* <Card style={{ marginVertical: 5 }}>
                     <Card.Content>
                         <Text variant="titleSmall">Created: {item.reportDateTime}</Text>
                         <Text variant="bodyMedium">Hazard: {item.description}</Text>
@@ -148,20 +153,25 @@ const MainScreen = ({ navigation }) => {
                             onPress={() => navigation.navigate('Hazard Update', { hazard: item })}
                         />
                     </Card.Actions>
-                </Card>
+                </Card> */}
             </TouchableOpacity>
         );
     };
 
     const renderAlertItem = ({ item }) => {
         return (
-            <Card style={{ marginVertical: 5 }}>
-                <Card.Content>
-                    <Text variant="titleSmall">Alert: {item.message}</Text>
-                    <Text variant="bodyMedium">Created: {item.createdDateTime}</Text>
-                    <Text variant="bodySmall">Expires: {item.expirationDate}</Text>
-                </Card.Content>
-            </Card>
+            <Card.Title
+             title={`${item.message} `}
+             subtitle ={`Created:${item.createdDateTime}  Expires: ${item.expirationDate}`}
+            right={(props) => <IconButton {...props} icon="dots-vertical" onPress={() => navigation.navigate('Ride Detail', {ride:item, groupID: item.groupID})} />}
+        />
+            // <Card>
+            //     <Card.Content>
+            //         <Text variant="titleSmall">Alert: {item.message}</Text>
+            //         <Text variant="bodyMedium">Created: {item.createdDateTime}</Text>
+            //         <Text variant="bodySmall">Expires: {item.expirationDate}</Text>
+            //     </Card.Content>
+            // </Card>
         );
     };
 
@@ -169,8 +179,19 @@ const MainScreen = ({ navigation }) => {
         <SafeAreaView style={{ margin: 10 }}>
             {/* Display the number of alerts */}
             <View style={{ height: 200 }}>
-            <Text style={{ fontWeight: 'bold', fontSize: 18 }}>Total Help asked: ({helps.length})</Text>
-                <Text style={{ fontWeight: 'bold', fontSize: 18 }}>School Alerts ({alerts.length}):</Text>
+                <View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'center'}}>
+            {/* <Text style={{ fontWeight: 'bold', fontSize: 18 }}>Total Help asked: ({helps.length})</Text>
+                <Text style={{ fontWeight: 'bold', fontSize: 18 }}>School Alerts ({alerts.length}):</Text> */}
+             <Text variant="titleMedium">Alerts({alerts.length})</Text>
+             <Button
+                    onPress={() => navigation.navigate('Hazard Report')}
+                    icon="alert"
+                    mode="text"
+                >
+                    Send Alert
+                </Button>
+                </View>
+             <Divider />
                 <FlatList
                     data={alerts}
                     renderItem={renderAlertItem}
@@ -178,7 +199,15 @@ const MainScreen = ({ navigation }) => {
                 />
             </View>
 
-            <Divider />
+            <View style={{marginBottom:5, flexDirection:'row', justifyContent:'space-between', alignItems:'center'}}>
+            <Text variant="titleMedium">Helps({helps.length})/Hazards({hazards.length}) </Text>
+            <Button
+                    onPress={() => navigation.navigate('Hazard Report')}
+                    mode="text"
+                >
+                    Report Hazard
+                </Button>
+            </View>
 
             {currentLocation ? (
                 <View>
@@ -252,20 +281,13 @@ const MainScreen = ({ navigation }) => {
             )}
 
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}>
-                <Button
-                    onPress={() => navigation.navigate('Hazard Report')}
-                    icon="alert"
-                    mode="contained"
-                    style={{ flex: 1, marginRight: 5 }}
-                >
-                    Report Hazard
-                </Button>
+               
                 <Button
                     icon="walk"
                     mode="contained"
                     style={{ flex: 1 }}
                 >
-                    Join Walk Group
+                    Join Group
                 </Button>
                 <Button
                     onPress={() => navigation.navigate('AskForHelpScreen')}
@@ -274,6 +296,14 @@ const MainScreen = ({ navigation }) => {
                     style={{ flex: 1, marginLeft: 5 }}
                 >
                     Ask For Help
+                </Button>
+                <Button
+                    onPress={() => navigation.navigate('AskForHelpScreen')}
+                    icon="bike"
+                    mode="contained"
+                    style={{ flex: 1, marginLeft: 5 }}
+                >
+                    E-Bike safety
                 </Button>
             </View>
         </SafeAreaView>
