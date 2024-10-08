@@ -76,7 +76,7 @@ const MainScreen = ({ navigation }) => {
         today.setHours(0, 0, 0, 0);
 
         // Fetch hazards from Firestore
-        const unsubscribeHazards = onSnapshot(collection(db, "hazards"), (querySnapshot) => {
+        const unsubscribeHazards = onSnapshot(collection(db, "hazard1"), (querySnapshot) => {
             const hazardFromDB = [];
             querySnapshot.forEach((doc) => {
                 const hazardDate = doc.data().reportDateTime.toDate();
