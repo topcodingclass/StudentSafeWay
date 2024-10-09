@@ -2,22 +2,26 @@ import React, { useState } from 'react';
 import { StyleSheet, Image, View, SafeAreaView } from 'react-native';
 import { IconButton, Text, TextInput, Button, Provider } from 'react-native-paper';
 import { collection, addDoc, Timestamp } from "firebase/firestore";
-import { db, storage } from '../firebase';
+import { db, storage, auth } from '../firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import DropDown from "react-native-paper-dropdown";
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from "expo-location";
 
-const MakeHazardReportScreen = ({ navigation }) => {
+const HazardReportScreen = ({ navigation, route }) => {
   const [showDropDownType, setShowDropDownType] = useState(false);
   const [showDropDownStatus, setShowDropDownStatus] = useState(false);
   const [type, setType] = useState('');
   const [status, setStatus] = useState('');
   const [description, setDescription] = useState('');
-  const [location, setLocation] = useState('');
+  const [location, setLocation] = useState({});
   const [image, setImage] = useState(null);
   const [imageurl, setImageurl] = useState('');
   const [uploadStatus, setUploadStatus] = useState('');
+
+  const studentID = auth.currentUser.uid
+
+  const {user} = route.params
 
   const hazardList = [
     { label: "Traffic-Related", value: "Traffic" },
@@ -80,12 +84,12 @@ const MakeHazardReportScreen = ({ navigation }) => {
       console.log('blob made')
       const timestamp = new Date().toISOString().replace(/[:.-]/g, ''); 
       const filename = `${timestamp}_${uri.substring(uri.lastIndexOf('/') + 1)}`;
-      console.log('filename made')
+      console.log('filename made', filename)
       const storageRef = ref(storage, filename);
       await uploadBytes(storageRef, blob);
       const url = await getDownloadURL(storageRef);
       console.log("image uploaded")
-
+      await fetchLocation();
 
       console.log('Download URL:', url);
       setImageurl(url);
@@ -97,18 +101,18 @@ const MakeHazardReportScreen = ({ navigation }) => {
   };
 
   const sendHazard = async () => {
-    await fetchLocation();
+    
     try {
       const docRef = await addDoc(collection(db, "hazards"), {
-        hazardType: type,
-        hazardMessage: description,
-        createdDateTime: Timestamp.fromDate(new Date()),
+        type: type,
+        description: description,
+        reportDateTime: Timestamp.fromDate(new Date()),
         status: status,
-        location: location,
+        locationDescription: location,
+        reportedBy: studentID,
         imaguri: imageurl
       });
       console.log("Document written with hazard type: ", type);
-      navigation.navigate('Hazard Display');
     } catch (e) {
       console.error("Error adding document: ", e);
     }
@@ -117,17 +121,8 @@ const MakeHazardReportScreen = ({ navigation }) => {
   return (
     <Provider>
       <SafeAreaView>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-evenly' }}>
-          <Text variant="labelLarge">Hello Scooby Doo!</Text>
-          <Text variant="labelLarge">15 degrees, Sunny</Text>
-          <IconButton
-            icon="account"
-            size={20}
-            onPress={() => console.log('Pressed')}
-          />
-        </View>
+        
         <View style={{ marginTop: 20, marginHorizontal: 30 }}>
-          <Text variant="titleMedium" style={{ alignSelf: 'center', marginBottom: 20 }}>Report Hazard</Text>
           <DropDown
             label={"Hazard Type"}
             mode={"outlined"}
@@ -182,4 +177,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default MakeHazardReportScreen;
+export default HazardReportScreen;
