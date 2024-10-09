@@ -1,10 +1,11 @@
 import { View, SafeAreaView, FlatList, TouchableOpacity, Alert, StyleSheet, Modal, ScrollView } from "react-native";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useLayoutEffect } from "react";
 import { Text, Button, IconButton, Divider, Card } from "react-native-paper";
 import { collection, onSnapshot, doc, getDoc } from "firebase/firestore";
 import { db, auth } from "../firebase";
 import MapView, { Marker, Callout } from "react-native-maps";
 import * as Location from 'expo-location';
+
 
 const MainScreen = ({ navigation }) => {
     const [hazards, setHazards] = useState([]);
@@ -12,7 +13,11 @@ const MainScreen = ({ navigation }) => {
     const [helps, setHelps] = useState([]); // State for helps (SOS markers)
     const [currentLocation, setCurrentLocation] = useState(null);
     const [studentData, setStudentData] = useState(null); // Store student data here
+    const [currentTab, setCurrentTab] = useState('hazards'); // State to toggle between 'hazards' and 'helps'
+    const [weather, setWeather] = useState(null);
+    const [error, setError] = useState(null);
     const [isModalVisible, setIsModalVisible] = useState(false); // State for Modal visibility
+
     const mapRef = useRef(null);
 
     const studentID = auth.currentUser.uid;
@@ -36,6 +41,70 @@ const MainScreen = ({ navigation }) => {
         fetchStudentData();
     }, []);
 
+    const fetchWeather = async () => {
+        try {
+          const apiKey = 'f376f73aad8ba601cb243638b117ade7'; // Replace with your actual API key
+          const city = 'Irvine'; // Replace with your city
+          const response = await fetch(
+            `https://api.openweathermap.org/data/2.5/weather?q=${city}&units=imperial&appid=${apiKey}`
+          );
+    
+          if (!response.ok) {
+            throw new Error('Error fetching weather data');
+          }
+    
+          const data = await response.json();
+          
+          // Log the full response to debug
+          console.log("Weather API Response:", data);
+    
+          // Check if the necessary properties exist in the response
+          if (data.main && data.weather) {
+            setWeather({
+              temperature: Math.round(data.main.temp),
+              condition: data.weather[0].main,
+            });
+          } else {
+            throw new Error('Incomplete weather data');
+          }
+        } catch (error) {
+          console.error("Error fetching weather data:", error);
+          setError('Unable to fetch weather data');
+        }
+      };
+    
+    
+      useEffect(() => {
+        fetchWeather();
+        // fetchUserName();
+      }, []);
+
+    useLayoutEffect(() => {
+        // Always set header, even if studentData is not ready yet
+        navigation.setOptions({
+            header: () =>  <SafeAreaView>
+            <View style={styles.headerContainer}>
+            <Text style={styles.welcomeText}>Welcome, {studentData?.name}!</Text>
+            {weather ? (
+              <Text style={styles.weatherText}>
+                {weather.temperature}°F, {weather.condition}
+              </Text>
+            ) : error ? (
+              <Text style={styles.weatherErrorText}>{error}</Text>
+            ) : (
+              <Text>Loading weather...</Text>
+            )}
+            <IconButton
+              size={20}
+              onPress={() => navigation.navigate('AskForHelpScreen')}
+              icon="car-emergency"
+              iconColor="red"
+                    />
+          </View>
+          </SafeAreaView>,
+        });
+    }, [navigation, studentData]); 
+
     // Fetch helps (SOS alerts) from Firebase
     useEffect(() => {
         const unsubscribeHelps = onSnapshot(collection(db, "helps"), (querySnapshot) => {
@@ -47,6 +116,7 @@ const MainScreen = ({ navigation }) => {
                 };
                 helpsFromDB.push(help);
             });
+            console.log(helpsFromDB)
             setHelps(helpsFromDB);
         });
 
@@ -76,26 +146,28 @@ const MainScreen = ({ navigation }) => {
         today.setHours(0, 0, 0, 0);
 
         // Fetch hazards from Firestore
-        const unsubscribeHazards = onSnapshot(collection(db, "hazard1"), (querySnapshot) => {
+        const unsubscribeHazards = onSnapshot(collection(db, "hazards"), (querySnapshot) => {
             const hazardFromDB = [];
             querySnapshot.forEach((doc) => {
                 const hazardDate = doc.data().reportDateTime.toDate();
                 hazardDate.setHours(0, 0, 0, 0);
 
-                if (hazardDate.getTime() === today.getTime()) {
-                    const hazard = {
-                        id: doc.id,
-                        description: doc.data().description,
-                        status: doc.data().status,
-                        reportDateTime: doc.data().reportDateTime.toDate().toDateString(),
-                        type: doc.data().type,
-                        location: {
-                            latitude: doc.data().location.latitude,
-                            longitude: doc.data().location.longitude,
-                        }
-                    };
-                    hazardFromDB.push(hazard);
-                }
+                //if (hazardDate.getTime() === today.getTime()) {
+                const hazard = {
+                    id: doc.id,
+                    description: doc.data().description,
+                    status: doc.data().status,
+                    reportDateTime: doc.data().reportDateTime.toDate().toDateString(),
+                    type: doc.data().type,
+                    imaguri: doc.data().imaguri,
+                    locationDescription: doc.data().locationDescription,
+                    location: {
+                        latitude: doc.data().location.latitude,
+                        longitude: doc.data().location.longitude,
+                    }
+                };
+                hazardFromDB.push(hazard);
+                // }
             });
             setHazards(hazardFromDB);
         });
@@ -139,9 +211,47 @@ const MainScreen = ({ navigation }) => {
             <TouchableOpacity onPress={() => focusOnMarker(item.location)}>
                 <Card.Title
                     title={`${item.description} `}
-                    subtitle={`Created: ${item.reportDateTime}  Status: ${item.status}`}
+                    subtitle={`Created:${item.reportDateTime}  Status: ${item.status}`}
                     right={(props) => <IconButton {...props} icon="dots-vertical" onPress={() => navigation.navigate('Hazard Update', { hazard: item })} />}
                 />
+                {/* <Card style={{ marginVertical: 5 }}>
+                    <Card.Content>
+                        <Text variant="titleSmall">Created: {item.reportDateTime}</Text>
+                        <Text variant="bodyMedium">Hazard: {item.description}</Text>
+                        <Text variant="bodySmall">Status: {item.status}</Text>
+                    </Card.Content>
+                    <Card.Actions>
+                        <IconButton
+                            icon="dots-vertical"
+                            onPress={() => navigation.navigate('Hazard Update', { hazard: item })}
+                        />
+                    </Card.Actions>
+                </Card> */}
+            </TouchableOpacity>
+        );
+    };
+
+    const renderHelpItem = ({ item }) => {
+        return (
+            <TouchableOpacity onPress={() => focusOnMarker(item.location)}>
+                <Card.Title
+                    title={`${item.description} `}
+                    subtitle={`Created:${item.reportDateTime}  Status: ${item.status}`}
+                    right={(props) => <IconButton {...props} icon="dots-vertical" onPress={() => navigation.navigate('Hazard Update', { hazard: item })} />}
+                />
+                {/* <Card style={{ marginVertical: 5 }}>
+                    <Card.Content>
+                        <Text variant="titleSmall">Created: {item.reportDateTime}</Text>
+                        <Text variant="bodyMedium">Hazard: {item.description}</Text>
+                        <Text variant="bodySmall">Status: {item.status}</Text>
+                    </Card.Content>
+                    <Card.Actions>
+                        <IconButton
+                            icon="dots-vertical"
+                            onPress={() => navigation.navigate('Hazard Update', { hazard: item })}
+                        />
+                    </Card.Actions>
+                </Card> */}
             </TouchableOpacity>
         );
     };
@@ -150,20 +260,29 @@ const MainScreen = ({ navigation }) => {
         return (
             <Card.Title
                 title={`${item.message} `}
-                subtitle={`Created: ${item.createdDateTime}  Expires: ${item.expirationDate}`}
+                subtitle={`Created:${item.createdDateTime}  Expires: ${item.expirationDate}`}
                 right={(props) => <IconButton {...props} icon="dots-vertical" onPress={() => navigation.navigate('Ride Detail', { ride: item, groupID: item.groupID })} />}
             />
+            // <Card>
+            //     <Card.Content>
+            //         <Text variant="titleSmall">Alert: {item.message}</Text>
+            //         <Text variant="bodyMedium">Created: {item.createdDateTime}</Text>
+            //         <Text variant="bodySmall">Expires: {item.expirationDate}</Text>
+            //     </Card.Content>
+            // </Card>
         );
     };
 
     return (
         <SafeAreaView style={{ margin: 10 }}>
             {/* Display the number of alerts */}
-            <View style={{ height: 160 }}>
+            <View>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Text variant="titleMedium">Alerts ({alerts.length})</Text>
+                    {/* <Text style={{ fontWeight: 'bold', fontSize: 18 }}>Total Help asked: ({helps.length})</Text>
+                <Text style={{ fontWeight: 'bold', fontSize: 18 }}>School Alerts ({alerts.length}):</Text> */}
+                    <Text variant="titleMedium">Alerts({alerts.length})</Text>
                     <Button
-                        onPress={() => navigation.navigate('Hazard Report')}
+                        onPress={() => navigation.navigate('Alert Send', {student:studentData})}
                         icon="alert"
                         mode="text"
                     >
@@ -179,9 +298,9 @@ const MainScreen = ({ navigation }) => {
             </View>
 
             <View style={{ marginBottom: 5, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text variant="titleMedium">Helps ({helps.length}) / Hazards ({hazards.length}) </Text>
+                <Text variant="titleMedium">Helps({helps.length})/Hazards({hazards.length}) </Text>
                 <Button
-                    onPress={() => navigation.navigate('Hazard Report')}
+                    onPress={() => navigation.navigate('Hazard Report', {user:studentData})}
                     mode="text"
                 >
                     Report Hazard
@@ -194,8 +313,10 @@ const MainScreen = ({ navigation }) => {
                         ref={mapRef}
                         style={{ width: "100%", height: "60%" }}
                         initialRegion={{
-                            latitude: currentLocation.coords.latitude,
-                            longitude: currentLocation.coords.longitude,
+                            //latitude: currentLocation.coords.latitude,
+                            //longitude: currentLocation.coords.longitude,
+                            latitude: 33.761663279215725,
+                            longitude: -117.86733512099948,
                             latitudeDelta: 0.010,
                             longitudeDelta: 0.010,
                         }}
@@ -224,13 +345,19 @@ const MainScreen = ({ navigation }) => {
                             </Marker>
                         ))}
 
-                        {/* Display help requests (SOS markers) */}
+
+                        {/* Display help requests (SOS markers) only as map markers */}
                         {helps.map((help) => (
                             <Marker
                                 key={help.id}
-                                coordinate={help.location}
-                                pinColor="red"
+                                coordinate={{
+                                    latitude: help.location.lat,
+                                    longitude: help.location.lang
+                                }}
                             >
+                                <View>
+                                    <Text style={{ fontSize: 30 }}>🆘</Text>
+                                </View>
                                 <Callout>
                                     <View>
                                         <Text style={{ fontWeight: 'bold' }}>{help.description}</Text>
@@ -242,18 +369,35 @@ const MainScreen = ({ navigation }) => {
                         ))}
                     </MapView>
 
-                    {/* Display the number of hazards */}
-                    <Text style={{ fontWeight: 'bold', fontSize: 18, marginVertical: 5 }}>
-                        Hazards ({hazards.length}):
-                    </Text>
+                    {/* Tab Buttons */}
+                    <View style={styles.tabButtons}>
+                        <Button
+                            onPress={() => setCurrentTab('hazards')}
+                            buttonColorolor={currentTab === 'hazards' ? '#6200ee' : '#000'}
+                        >Hazards
+                        </Button>
+                        <Button
+                            onPress={() => setCurrentTab('helps')}
+                            buttonColorolor={currentTab === 'hazards' ? '#6200ee' : '#000'}
+                        >Helps</Button>
+                    </View>
 
-                    {/* FlatList for Hazards */}
-                    <FlatList
-                        data={hazards}
-                        renderItem={renderHazardItem}
-                        keyExtractor={item => item.id}
-                        style={{ flex: 1 }}
-                    />
+                    {/* Hazards or Helps List based on currentTab */}
+                    {currentTab === 'hazards' ? (
+                        <FlatList
+                            data={hazards}
+                            renderItem={renderHazardItem}
+                            keyExtractor={item => item.id}
+                            style={{ flex: 1 }}
+                        />
+                    ) : (
+                        <FlatList
+                            data={helps}
+                            renderItem={renderHelpItem}
+                            keyExtractor={item => item.id}
+                            style={{ flex: 1 }}
+                        />
+                    )}
                 </View>
             ) : (
                 <Text>Loading...</Text>
@@ -292,14 +436,23 @@ const MainScreen = ({ navigation }) => {
                 </View>
             </Modal>
 
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, marginBottom: -60 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}>
+
                 <Button
+                    onPress={() => navigation.navigate('Walk Group List')}
                     icon="walk"
                     mode="contained"
                     style={{ flex: 1 }}
-                    onPress={() => navigation.navigate('Walk Group List')}
                 >
                     Join Group
+                </Button>
+                <Button
+                    onPress={() => navigation.navigate('Suggest Add')}
+                    icon="head-lightbulb"
+                    mode="contained"
+                    style={{ flex: 1, marginLeft: 5 }}
+                >
+                    Add Suggestion
                 </Button>
                 <Button
                     onPress={() => setIsModalVisible(true)} // Trigger the modal
@@ -315,7 +468,42 @@ const MainScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-    modalContainer: {
+    map: {
+        flex: 0.8,
+        width: '100%',
+    },
+    customMarker: {
+        width: 40,
+        height: 40,
+        backgroundColor: 'gray',
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    markerText: {
+        color: 'red',
+    },
+    tabButtons: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        paddingVertical: 5,
+    },
+    headerContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-evenly',
+      },
+      welcomeText: {
+        fontSize: 16,
+      },
+      weatherText: {
+        fontSize: 16,
+      },
+      weatherErrorText: {
+        color: 'red',
+        fontSize: 16,
+      },
+      modalContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
@@ -343,4 +531,3 @@ const styles = StyleSheet.create({
 });
 
 export default MainScreen;
-
