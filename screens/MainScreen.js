@@ -43,7 +43,7 @@ const MainScreen = ({ navigation }) => {
 
     const fetchWeather = async () => {
         try {
-          const apiKey = 'f376f73aad8ba601cb243638b117ade7'; // Replace with your actual API key
+          const apiKey = ''; 
           const city = 'Irvine'; // Replace with your city
           const response = await fetch(
             `https://api.openweathermap.org/data/2.5/weather?q=${city}&units=imperial&appid=${apiKey}`
