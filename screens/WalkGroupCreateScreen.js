@@ -47,7 +47,7 @@ const WalkGroupCreateScreen = ({navigation}) => {
   const addGroups = async () => {
     try {
       // Geocode gatheringPointAddress to get lat/lng
-      const apiKey = 'AIzaSyAwZ14E06iyM-L465xhMqZlLltS_FNJEjY';
+      const apiKey = '';
       const response = await axios.get(`https://maps.googleapis.com/maps/api/geocode/json`, {
         params: {
           address: gatheringPointAddress,
